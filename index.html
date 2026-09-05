@@ -88,15 +88,13 @@
   /* ---------- top five ---------- */
   .five{display:flex;flex-direction:column;gap:1px;background:var(--line)}
   .five-row{
-    display:grid;grid-template-columns:26px 62px minmax(0,1fr) auto;
+    display:grid;grid-template-columns:26px 74px minmax(0,1fr) auto;
     gap:12px;align-items:center;
     background:var(--panel);padding:11px 12px;
   }
   .five-row .rank{color:var(--dim);font-size:13px;text-align:right}
-  .five-row .val{
-    font-size:24px;font-weight:700;text-align:right;line-height:1;
-  }
-  .five-row .val small{display:block;font-size:10.5px;font-weight:500;color:var(--dim);margin-top:3px}
+  .five-row .val{text-align:right}
+  .five-row .val small{display:block;font-size:10.5px;font-weight:500;color:var(--dim);margin-top:4px}
   .nm{font-size:16px;font-weight:600;letter-spacing:-.01em}
   .meta{font-size:11.5px;color:var(--muted);margin-top:2px}
   .meta .pos{color:var(--chalk)}
@@ -116,6 +114,14 @@
   .rec .why{font-size:12.5px;color:var(--muted);margin-top:3px}
   .rec .why em{font-style:normal;color:var(--chalk)}
   .edge{font-size:13px;color:var(--gain);font-weight:600;white-space:nowrap}
+
+  /* ---------- value box ---------- */
+  .vbox{display:inline-block;min-width:32px;text-align:right;padding:2px 6px;border-radius:3px;
+    font-variant-numeric:tabular-nums lining-nums;font-weight:600;font-size:13px;line-height:1.25}
+  .vbox.pos{background:rgba(111,208,140,.15);border:1px solid rgba(111,208,140,.34);color:#8FE0A6}
+  .vbox.zero{background:rgba(223,106,82,.14);border:1px solid rgba(223,106,82,.34);color:#EE9280}
+  .vbox.none{background:transparent;border:1px solid var(--line);color:var(--dim)}
+  .vbox.big{font-size:21px;padding:4px 8px;min-width:44px;letter-spacing:-.01em}
 
   /* ---------- market watch ---------- */
   .duo{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:28px;align-items:start}
@@ -213,6 +219,7 @@
     .clock .pick{font-size:30px}
     .five-row{grid-template-columns:20px 52px minmax(0,1fr);row-gap:8px}
     .five-row .acts{grid-column:2/-1;justify-content:flex-start}
+    .vbox.big{font-size:18px;min-width:38px}
   }
   @media (prefers-reduced-motion:no-preference){
     .gonebar i{transition:width .25s ease}
@@ -240,7 +247,7 @@
     <label>RB <input id="sRB" type="number" min="0" max="5" value="2"></label>
     <label>WR <input id="sWR" type="number" min="0" max="6" value="3"></label>
     <label>TE <input id="sTE" type="number" min="0" max="3" value="1"></label>
-    <label>Flex <input id="sFX" type="number" min="0" max="4" value="2"></label>
+    <label>Flex <input id="sFX" type="number" min="0" max="4" value="1"></label>
     <label>Superflex <input id="sSF" type="number" min="0" max="2" value="1"></label>
     <label>Bench <input id="sBN" type="number" min="0" max="12" value="6"></label>
   </div>
@@ -610,7 +617,12 @@ function needWeight(pos){
 
 /* ===== render ===== */
 const $=id=>document.getElementById(id);
-function fmtV(v){ return v>0? "$"+v : "—"; }
+function fmtV(v){ return (v===null||v===undefined) ? "—" : String(v); }
+// value box: green above zero, red at zero, blank outline for players your board doesn't rate
+function valBox(p, big){
+  const c = (p.val===null||p.val===undefined) ? "none" : (p.val>0 ? "pos" : "zero");
+  return `<span class="vbox ${c}${big?" big":""}">${fmtV(p.val)}</span>`;
+}
 function fmtW(w){ return (w===null||w===undefined)?"—":(w>0?"+":"")+w.toFixed(1); }
 
 function render(){
@@ -635,7 +647,7 @@ function render(){
     const g=Math.round(100*(sim.goneProb[p.id]||0));
     return `<div class="five-row">
       <div class="rank num">${i+1}</div>
-      <div class="val num">${fmtV(p.val)}<small>${fmtW(p.wk)}/wk</small></div>
+      <div class="val">${valBox(p,true)}<small>${fmtW(p.wk)}/wk</small></div>
       <div>
         <div class="nm lnk" data-info="${p.id}">${p.name}${NOTES[p.name]?'<i class="dot"></i>':''}</div>
         <div class="meta"><span class="pos">${p.pos}${p.pr}</span> · ${p.tm} · ${byeTxt(p)} · ${nextOdds}% to go next</div>
@@ -664,7 +676,7 @@ function render(){
     const g=Math.round(100*(sim.goneProb[r.p.id]||0));
     const reasons=[];
     reasons.push(`fills <em>${openLbl(r.p.pos)}</em>`);
-    if(r.edge>2) reasons.push(`<em>$${r.edge.toFixed(0)} more</em> than the best ${r.p.pos} likely left at ${pickLabel(sim.target)}`);
+    if(r.edge>2) reasons.push(`<em>${r.edge.toFixed(0)} more value</em> than the best ${r.p.pos} likely left at ${pickLabel(sim.target)}`);
     else reasons.push(`similar ${r.p.pos} value should still be there at ${pickLabel(sim.target)}`);
     if(g>=55) reasons.push(`<em>${g}% gone</em> if you wait`);
     return `<div class="rec">
@@ -673,7 +685,7 @@ function render(){
         <div class="why">${reasons.join(" · ")}</div>
       </div>
       <div style="text-align:right">
-        <div class="edge num">${fmtV(r.p.val)}</div>
+        <div>${valBox(r.p)}</div>
         <div class="acts" style="margin-top:6px"><button class="take mine" data-me="${r.p.id}">Draft</button></div>
       </div>
     </div>`;
@@ -697,7 +709,7 @@ function render(){
     return `<tr class="${st==='me'?'mine':st?'gone':''}">
       <td class="tm">${espView ? p.epr : p.pos+p.pr}</td>
       <td><span class="pname lnk" data-info="${p.id}">${p.name}</span>${NOTES[p.name]?'<i class="dot"></i>':''} <span class="tm">${p.tm}</span>${p.off?' <span class="pill">not on your board</span>':''}</td>
-      <td class="r num">${fmtV(p.val)}</td>
+      <td class="r">${valBox(p)}</td>
       <td class="r num" style="color:${p.wk>=0?'var(--gain)':'var(--loss)'}">${fmtW(p.wk)}</td>
       <td class="r num tm" title="${p.epr||''}">${p.esp?"#"+p.esp:"—"}</td>
       <td class="r num tm">${p.bye||"—"}</td>
@@ -754,7 +766,7 @@ function renderMarket(board, sim){
     <div class="cliff">
       <div class="p">${d.ps}</div>
       <div class="track"><i style="width:${Math.round(100*d.drop/maxDrop)}%"></i></div>
-      <div class="d ${d.drop<3?'ok':''}">$${d.now} → $${d.later}</div>
+      <div class="d ${d.drop<3?'ok':''}">${d.now} → ${d.later}</div>
     </div>`).join("") : `<div class="sub">You're on the clock — nothing to wait for.</div>`;
 
   // where the market is likely to disagree with your board
@@ -795,7 +807,7 @@ function openSheet(id){
     <div class="top">
       <div>
         <h3>${p.name}</h3>
-        <div class="sub2">${p.pos}${p.off?"":p.pr} · ${p.tm} · bye ${p.bye||"—"} · ${p.off?"not on your board":"board value "+fmtV(p.val)+" · "+fmtW(p.wk)+"/wk"} · ${p.esp?"ESPN #"+p.esp+" ("+p.epr+")":"unranked at ESPN"}</div>
+        <div class="sub2">${p.pos}${p.off?"":p.pr} · ${p.tm} · bye ${p.bye||"—"} · ${p.off?"not on your board":"value "+fmtV(p.val)+" · "+fmtW(p.wk)+"/wk"} · ${p.esp?"ESPN #"+p.esp+" ("+p.epr+")":"unranked at ESPN"}</div>
       </div>
       <button class="x" id="mX" aria-label="Close">&times;</button>
     </div>
@@ -855,7 +867,12 @@ $("modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeSheet();
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && sheetFor!==null) closeSheet(); });
 
 /* ===== actions ===== */
-function draft(id, who){ if(S.gone[id]) return; S.gone[id]=who; S.order.push(id); query=""; $("q").value=""; if(sheetFor===null) render(); }
+function draft(id, who){
+  if(S.gone[id]) return;
+  S.gone[id]=who; S.order.push(id);
+  query=""; $("q").value="";
+  if(sheetFor===null) render(); else save();
+}
 document.addEventListener("click", e=>{
   const info=e.target.closest("[data-info]");
   const g=e.target.closest("[data-go]"), m=e.target.closest("[data-me]");
@@ -866,7 +883,13 @@ document.addEventListener("click", e=>{
   }
 });
 $("undo").onclick=()=>{ const id=S.order.pop(); if(id!==undefined) delete S.gone[id]; render(); };
-$("reset").onclick=()=>{ if(!S.order.length||confirm("Clear every pick and start over?")){ S.gone={}; S.order=[]; try{localStorage.removeItem(KEY);}catch(e){} render(); } };
+$("reset").onclick=()=>{
+  if(!S.order.length||confirm("Clear every pick and start over?")){
+    S.gone={}; S.order=[];
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    render();
+  }
+};
 $("setBtn").onclick=()=>$("settings").classList.toggle("open");
 $("q").addEventListener("input",e=>{ query=e.target.value; render(); });
 $("q").addEventListener("keydown",e=>{
