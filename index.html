@@ -117,6 +117,25 @@
   .rec .why em{font-style:normal;color:var(--chalk)}
   .edge{font-size:13px;color:var(--gain);font-weight:600;white-space:nowrap}
 
+  /* ---------- market watch ---------- */
+  .duo{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:28px;align-items:start}
+  .mkt{font-size:12.5px}
+  .mkt .blk{padding:9px 0;border-top:1px solid var(--line)}
+  .mkt .blk:first-child{border-top:none;padding-top:0}
+  .mkt .cap{color:var(--dim);font-size:11px;margin-bottom:5px}
+  .mkt .head{color:var(--chalk);font-size:13.5px}
+  .mkt .head.warn{color:var(--amber)}
+  .mkt .sub{color:var(--muted);margin-top:2px}
+  .cliff{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:3px 0}
+  .cliff .p{color:var(--muted)}
+  .cliff .track{height:3px;background:rgba(255,255,255,.07);position:relative}
+  .cliff .track i{position:absolute;inset:0 auto 0 0;background:var(--loss)}
+  .cliff .d{color:var(--loss);white-space:nowrap;font-size:12px}
+  .cliff .d.ok{color:var(--dim)}
+  .skew{display:flex;justify-content:space-between;gap:10px;padding:3px 0;color:var(--muted)}
+  .skew b{color:var(--chalk);font-weight:500}
+  .skew span{white-space:nowrap;font-size:11.5px;color:var(--dim)}
+
   /* ---------- pool ---------- */
   .tools{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
   .search{
@@ -164,6 +183,7 @@
 
   @media (max-width:900px){
     main{grid-template-columns:minmax(0,1fr)}
+    .duo{grid-template-columns:minmax(0,1fr);gap:22px}
     .col.side{border-left:0;border-top:1px solid var(--line2)}
     header{gap:14px}
     .clock .pick{font-size:30px}
@@ -197,6 +217,7 @@
     <label>WR <input id="sWR" type="number" min="0" max="6" value="3"></label>
     <label>TE <input id="sTE" type="number" min="0" max="3" value="1"></label>
     <label>Flex <input id="sFX" type="number" min="0" max="4" value="1"></label>
+    <label>Superflex <input id="sSF" type="number" min="0" max="2" value="0"></label>
     <label>Bench <input id="sBN" type="number" min="0" max="12" value="6"></label>
   </div>
 </div>
@@ -208,9 +229,15 @@
       <div class="five" id="five"></div>
     </div>
 
-    <div class="section">
-      <h2>Best pick for your team <span id="recNote"></span></h2>
-      <div id="recs"></div>
+    <div class="section duo">
+      <div>
+        <h2>Best pick for your team <span id="recNote"></span></h2>
+        <div id="recs"></div>
+      </div>
+      <div>
+        <h2>Market watch <span>— predictions, not your board</span></h2>
+        <div class="mkt" id="market"></div>
+      </div>
     </div>
 
     <div class="section">
@@ -253,7 +280,7 @@
 </main>
 
 <footer>
-  Values and pts/wk come straight off your board — everything else is computed here. "Next off the board" is a market model, not real ADP: it starts from your values, discounts quarterbacks early, adds a premium for the top tight ends and QB1, and reacts when a position run starts. Gone-by-your-pick odds and the value edge on recommendations come from 300 simulated drafts run at every pick.
+  Every ranking here is your board, untouched: players come off in descending value, with pts/wk breaking ties between equal dollar figures. Nothing is adjusted for position, scarcity, or draft-day market behavior. Gone-by-your-pick odds and the dollar edge on recommendations come from 300 simulated drafts run at every pick, where each simulated team takes near the top of your board with a little randomness. Roster needs are the only thing that shapes what gets recommended to you. Market watch is the one exception, and it is walled off: it runs a separate model that discounts quarterbacks in one-QB leagues, promotes them in superflex, pays a premium for the top two tight ends, and reacts to position runs — purely to flag where real drafters tend to diverge from a value board. It never reorders anything else.
 </footer>
 
 <script>
@@ -325,42 +352,47 @@ const RAW = [
 
 const P = RAW.map((r,i)=>({id:i,pos:r[0],tm:r[1],name:r[2],val:r[3],wk:r[4]}));
 const posRank={}; P.forEach(p=>{posRank[p.pos]=(posRank[p.pos]||0)+1; p.pr=posRank[p.pos];});
-// worth = the single number we optimise: auction value plus a weekly-points kicker
-P.forEach(p=>{p.worth = p.val + 2.2*p.wk;});
+// worth = your dollar value. pts/wk only separates players tied on value (max shift 0.13)
+P.forEach(p=>{p.worth = p.val + p.wk/100;});
 
 /* ===== state ===== */
 let S = {
-  teams:12, slot:6, need:{QB:1,RB:2,WR:3,TE:1,FLEX:1,BENCH:6},
+  teams:12, slot:6, need:{QB:1,RB:2,WR:3,TE:1,FLEX:1,SFX:0,BENCH:6},
   gone:{},          // id -> 'me' | 'other'
   order:[]          // ids in pick order
 };
 let filter="ALL", showGone=false, query="";
 
-/* ===== market model ===== */
-const QB_EARLY=0.58, QB_LATE=1.0;
-function marketScore(p, picksMade, totalPicks, runs){
-  let m = 1;
-  if(p.pos==="QB") m = QB_EARLY + (QB_LATE-QB_EARLY)*Math.min(1, picksMade/(totalPicks*0.62));
-  else if(p.pos==="RB") m = 1.12;
-  else if(p.pos==="WR") m = 1.00;
-  else m = 0.95;
-  let prem = 0;
-  if(p.pos==="TE"){ if(p.pr===1) prem=19; else if(p.pr===2) prem=15; else if(p.pr<=5) prem=5; }
-  if(p.pos==="QB"){ if(p.pr===1) prem=8; else if(p.pr<=6) prem=5; }
-  const run = 1 + 0.07*(runs[p.pos]||0);
-  return Math.max(0.1, (p.val*m + prem + Math.max(0,p.wk)*1.1) * run);
-}
+/* ===== board order: strictly your values ===== */
+function boardScore(p){ return p.worth; }
+
+/* ===== market model — feeds the Market watch panel ONLY.
+   Never touches board order, recommendations, or any displayed value. ===== */
 function recentRuns(){
   const r={QB:0,RB:0,WR:0,TE:0};
   S.order.slice(-8).forEach(id=>r[P[id].pos]++);
   return r;
 }
-function totalPicks(){ const n=S.need; return S.teams*(n.QB+n.RB+n.WR+n.TE+n.FLEX+n.BENCH); }
+function mktScore(p, runs){
+  const sf=(S.need.SFX||0)>0, made=S.order.length, tp=totalPicks();
+  let m=1;
+  if(p.pos==="QB") m = sf ? 1.25 : 0.58 + 0.42*Math.min(1, made/(tp*0.62));
+  else if(p.pos==="RB") m=1.12; else if(p.pos==="WR") m=1.00; else m=0.95;
+  let prem=0;
+  if(p.pos==="TE"){ if(p.pr===1) prem=19; else if(p.pr===2) prem=15; else if(p.pr<=5) prem=5; }
+  if(p.pos==="QB"){
+    if(sf) prem = p.pr<=2?12 : p.pr<=12?7 : p.pr<=2*S.teams?4 : 1;
+    else if(p.pr===1) prem=8; else if(p.pr<=6) prem=5;
+  }
+  return Math.max(0.1,(p.val*m + prem + Math.max(0,p.wk)*1.1) * (1 + 0.07*(runs[p.pos]||0)));
+}
+function totalPicks(){ const n=S.need; return S.teams*(n.QB+n.RB+n.WR+n.TE+n.FLEX+(n.SFX||0)+n.BENCH); }
 function available(){ return P.filter(p=>!S.gone[p.id]); }
 function scored(){
-  const made=S.order.length, tp=totalPicks(), runs=recentRuns();
-  return available().map(p=>({p,s:marketScore(p,made,tp,runs)})).sort((a,b)=>b.s-a.s);
+  return available().map(p=>({p,s:boardScore(p)})).sort((a,b)=>b.s-a.s);
 }
+// weight for the simulator: floor keeps the $0 tail from collapsing to zero
+function wgt(s){ return Math.pow(Math.max(s,-3)+6, 2.1); }
 
 /* ===== snake clock ===== */
 function teamAt(idx){
@@ -387,9 +419,9 @@ function simulate(){
     const rest = pool.slice(Math.max(span+40,60));
     for(let k=0;k<span && av.length;k++){
       const top=av.slice(0,K);
-      const tot=top.reduce((a,o)=>a+Math.pow(o.s,2.1),0);
+      const tot=top.reduce((a,o)=>a+wgt(o.s),0);
       let r=Math.random()*tot, pick=0;
-      for(let j=0;j<top.length;j++){ r-=Math.pow(top[j].s,2.1); if(r<=0){pick=j;break;} }
+      for(let j=0;j<top.length;j++){ r-=wgt(top[j].s); if(r<=0){pick=j;break;} }
       const chosen=av.splice(pick,1)[0];
       gone[chosen.p.id]=(gone[chosen.p.id]||0)+1;
     }
@@ -426,6 +458,12 @@ function fillSlots(){
     if(best) used.add(best.id);
     slots.push({lbl:"FLEX", pos:"FLEX", p:best});
   }
+  for(let i=0;i<(n.SFX||0);i++){
+    let best=null;
+    ["QB","RB","WR","TE"].forEach(ps=>{ const c=byPos[ps].find(p=>!used.has(p.id)); if(c && (!best||c.worth>best.worth)) best=c; });
+    if(best) used.add(best.id);
+    slots.push({lbl:"SFLEX", pos:"SFX", p:best});
+  }
   const bench = myPlayers().filter(p=>!used.has(p.id));
   return {slots, bench};
 }
@@ -433,10 +471,12 @@ function needWeight(pos){
   const {slots}=fillSlots(), n=S.need;
   const openStarter = slots.some(s=>s.pos===pos && !s.p);
   const openFlex = slots.some(s=>s.pos==="FLEX" && !s.p) && (pos==="RB"||pos==="WR"||pos==="TE");
+  const openSuper = slots.some(s=>s.pos==="SFX" && !s.p);
   const have = myPlayers().filter(p=>p.pos===pos).length;
   if(openStarter) return 1;
-  if(openFlex) return 0.8;
-  if(pos==="QB" && have>=1) return have>=2?0.05:0.25;
+  if(openSuper && pos==="QB") return 0.95;
+  if(openFlex || openSuper) return 0.8;
+  if(pos==="QB" && have>=1) return (S.need.SFX||0)>0 ? (have>=3?0.1:0.55) : (have>=2?0.05:0.25);
   if(pos==="TE" && have>=1) return have>=2?0.08:0.3;
   const bench = n.BENCH;
   return have >= n[pos]+bench*0.5 ? 0.15 : 0.5;
@@ -462,10 +502,10 @@ function render(){
 
   // top five
   const five=board.slice(0,5);
-  const tot=five.reduce((a,o)=>a+Math.pow(o.s,2.1),0);
-  $("fiveNote").textContent = five.length? "— odds each is the very next name called" : "";
+  const tot=five.reduce((a,o)=>a+wgt(o.s),0);
+  $("fiveNote").textContent = five.length? "— highest value left on your board" : "";
   $("five").innerHTML = five.map((o,i)=>{
-    const p=o.p, nextOdds=Math.round(100*Math.pow(o.s,2.1)/tot);
+    const p=o.p, nextOdds=Math.round(100*wgt(o.s)/tot);
     const g=Math.round(100*(sim.goneProb[p.id]||0));
     return `<div class="five-row">
       <div class="rank num">${i+1}</div>
@@ -485,17 +525,19 @@ function render(){
   // recommendations
   const recs = board.map(o=>{
     const p=o.p, w=needWeight(p.pos);
-    const edge = p.worth - (sim.expBest[p.pos]||0);
+    const edge = p.val - Math.round(sim.expBest[p.pos]||0);
     return {p, w, edge, score: w*(p.worth*0.45 + Math.max(edge,0)*0.9) + (w>=1?4:0)};
   }).sort((a,b)=>b.score-a.score).slice(0,3);
   const {slots}=fillSlots();
-  const openLbl = pos => (slots.find(s=>s.pos===pos && !s.p)||{}).lbl || (slots.find(s=>s.pos==="FLEX"&&!s.p)?"FLEX":"bench");
+  const openLbl = pos => (slots.find(s=>s.pos===pos && !s.p)||{}).lbl
+    || (slots.find(s=>s.pos==="SFX"&&!s.p) ? "SFLEX"
+    : (pos!=="QB" && slots.find(s=>s.pos==="FLEX"&&!s.p) ? "FLEX" : "bench"));
   $("recNote").textContent = sim.span>0 ? "— value now vs. what's left at "+pickLabel(sim.target) : "";
   $("recs").innerHTML = recs.map(r=>{
     const g=Math.round(100*(sim.goneProb[r.p.id]||0));
     const reasons=[];
     reasons.push(`fills <em>${openLbl(r.p.pos)}</em>`);
-    if(r.edge>2) reasons.push(`worth <em>${r.edge.toFixed(0)} more</em> than the best ${r.p.pos} likely left at ${pickLabel(sim.target)}`);
+    if(r.edge>2) reasons.push(`<em>$${r.edge.toFixed(0)} more</em> than the best ${r.p.pos} likely left at ${pickLabel(sim.target)}`);
     else reasons.push(`similar ${r.p.pos} value should still be there at ${pickLabel(sim.target)}`);
     if(g>=55) reasons.push(`<em>${g}% gone</em> if you wait`);
     return `<div class="rec">
@@ -509,6 +551,9 @@ function render(){
       </div>
     </div>`;
   }).join("") || `<div class="empty">No players left.</div>`;
+
+  // market watch
+  renderMarket(board, sim);
 
   // pool
   const q=query.trim().toLowerCase();
@@ -556,6 +601,47 @@ function render(){
   save();
 }
 
+function renderMarket(board, sim){
+  const runs=recentRuns(), recent=S.order.slice(-8).length;
+  const hot=Object.entries(runs).sort((a,b)=>b[1]-a[1])[0];
+  const runLine = !recent ? `<div class="head">Draft hasn't started</div><div class="sub">Run detection needs a few picks.</div>`
+    : hot[1]>=3
+      ? `<div class="head warn">${hot[1]} of the last ${recent} picks were ${hot[0]}s</div><div class="sub">Expect the next ${hot[0]} to go sooner than your board says.</div>`
+      : `<div class="head">No run in progress</div><div class="sub">Last ${recent} picks spread across ${Object.values(runs).filter(v=>v>0).length} positions.</div>`;
+
+  // cost of waiting: your best available now vs. what the sim leaves you
+  const bestNow={};
+  ["QB","RB","WR","TE"].forEach(ps=>{ const b=board.find(o=>o.p.pos===ps); bestNow[ps]=b?b.p.val:0; });
+  const drops=["QB","RB","WR","TE"].map(ps=>({ps, now:bestNow[ps], later:Math.round(sim.expBest[ps]||0)}))
+    .map(d=>({...d, drop:Math.max(0,d.now-d.later)}));
+  const maxDrop=Math.max(1,...drops.map(d=>d.drop));
+  const cliffRows = sim.span>0 ? drops.sort((a,b)=>b.drop-a.drop).map(d=>`
+    <div class="cliff">
+      <div class="p">${d.ps}</div>
+      <div class="track"><i style="width:${Math.round(100*d.drop/maxDrop)}%"></i></div>
+      <div class="d ${d.drop<3?'ok':''}">$${d.now} → $${d.later}</div>
+    </div>`).join("") : `<div class="sub">You're on the clock — nothing to wait for.</div>`;
+
+  // where the market is likely to disagree with your board
+  const avail=board.map(o=>o.p);
+  const bRank={}; avail.forEach((p,i)=>bRank[p.id]=i+1);
+  const mOrder=avail.slice().map(p=>({p,s:mktScore(p,runs)})).sort((a,b)=>b.s-a.s);
+  const mRank={}; mOrder.forEach((o,i)=>mRank[o.p.id]=i+1);
+  const diffs=avail.filter(p=>Math.min(bRank[p.id],mRank[p.id])<=70)
+    .map(p=>({p, d:bRank[p.id]-mRank[p.id], b:bRank[p.id], m:mRank[p.id]}));
+  const early=diffs.slice().sort((a,b)=>b.d-a.d).filter(x=>x.d>=6).slice(0,3);
+  const late =diffs.slice().sort((a,b)=>a.d-b.d).filter(x=>x.d<=-6).slice(0,3);
+  const skewRow=x=>`<div class="skew"><b>${x.p.name}</b><span>board ${x.b} · market ${x.m}</span></div>`;
+
+  $("market").innerHTML=`
+    <div class="blk"><div class="cap">Position run</div>${runLine}</div>
+    <div class="blk"><div class="cap">${sim.span>0?`Best available now vs. at ${pickLabel(sim.target)}`:"Cost of waiting"}</div>${cliffRows}</div>
+    <div class="blk"><div class="cap">Likely to go before your board says</div>
+      ${early.map(skewRow).join("") || `<div class="sub">Your board and the market agree at the top.</div>`}</div>
+    <div class="blk"><div class="cap">Likely to slide to you</div>
+      ${late.map(skewRow).join("") || `<div class="sub">No obvious fallers right now.</div>`}</div>`;
+}
+
 /* ===== actions ===== */
 function draft(id, who){ if(S.gone[id]) return; S.gone[id]=who; S.order.push(id); query=""; $("q").value=""; render(); }
 document.addEventListener("click", e=>{
@@ -581,10 +667,10 @@ $("tabs").addEventListener("click",e=>{
   render();
 });
 $("showGone").onclick=e=>{ showGone=!showGone; e.target.setAttribute("aria-pressed",showGone); e.target.textContent=showGone?"Hide drafted":"Show drafted"; render(); };
-["sTeams","sSlot","sQB","sRB","sWR","sTE","sFX","sBN"].forEach(id=>{
+["sTeams","sSlot","sQB","sRB","sWR","sTE","sFX","sSF","sBN"].forEach(id=>{
   $(id).addEventListener("change",()=>{
     S.teams=+$("sTeams").value||12; S.slot=Math.min(+$("sSlot").value||1,S.teams);
-    S.need={QB:+$("sQB").value,RB:+$("sRB").value,WR:+$("sWR").value,TE:+$("sTE").value,FLEX:+$("sFX").value,BENCH:+$("sBN").value};
+    S.need={QB:+$("sQB").value,RB:+$("sRB").value,WR:+$("sWR").value,TE:+$("sTE").value,FLEX:+$("sFX").value,SFX:+$("sSF").value,BENCH:+$("sBN").value};
     $("sSlot").value=S.slot;
     render();
   });
@@ -602,7 +688,9 @@ function load(){
       S = v;
       $("sTeams").value = S.teams; $("sSlot").value = S.slot;
       $("sQB").value = S.need.QB; $("sRB").value = S.need.RB; $("sWR").value = S.need.WR;
-      $("sTE").value = S.need.TE; $("sFX").value = S.need.FLEX; $("sBN").value = S.need.BENCH;
+      if(S.need.SFX===undefined) S.need.SFX = 0;
+      $("sTE").value = S.need.TE; $("sFX").value = S.need.FLEX;
+      $("sSF").value = S.need.SFX; $("sBN").value = S.need.BENCH;
     }
   }catch(e){}
   render();
