@@ -136,6 +136,30 @@
   .skew b{color:var(--chalk);font-weight:500}
   .skew span{white-space:nowrap;font-size:11.5px;color:var(--dim)}
 
+  /* ---------- player sheet ---------- */
+  .lnk{cursor:pointer}
+  .lnk:hover{text-decoration:underline;text-underline-offset:2px}
+  .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--amber);vertical-align:middle;margin-left:5px}
+  .modal{position:fixed;inset:0;background:rgba(6,11,8,.78);display:none;align-items:flex-start;justify-content:center;padding:22px 14px 40px;z-index:50;overflow:auto}
+  .modal.open{display:flex}
+  .sheet{background:var(--panel);border:1px solid var(--line2);width:min(560px,100%);border-radius:4px;padding:15px 17px 18px}
+  .sheet .top{display:flex;align-items:flex-start;gap:10px}
+  .sheet h3{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em}
+  .sheet .sub2{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .x{margin-left:auto;background:transparent;border:0;color:var(--muted);font-size:22px;line-height:1;padding:0 2px}
+  .x:hover{color:var(--chalk)}
+  .sheet .row{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+  .cap2{color:var(--dim);font-size:11px;margin:16px 0 4px}
+  .sheet textarea{width:100%;min-height:80px;background:#0D1611;border:1px solid var(--line2);color:var(--chalk);
+    border-radius:3px;padding:9px 10px;font-family:inherit;font-size:13.5px;line-height:1.45;resize:vertical}
+  .news a{display:block;color:var(--chalk);text-decoration:none;padding:8px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.35}
+  .news a:first-child{border-top:none}
+  .news a:hover{color:var(--gain)}
+  .news .src{color:var(--dim);font-size:11px;margin-top:3px}
+  .news .sub{color:var(--dim);font-size:12.5px;padding:6px 0}
+  .out{border:1px solid var(--line2);border-radius:3px;padding:5px 9px;font-size:12px;color:var(--muted);text-decoration:none}
+  .out:hover{color:var(--chalk);border-color:var(--chalk)}
+
   /* ---------- pool ---------- */
   .tools{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
   .search{
@@ -217,7 +241,7 @@
     <label>WR <input id="sWR" type="number" min="0" max="6" value="3"></label>
     <label>TE <input id="sTE" type="number" min="0" max="3" value="1"></label>
     <label>Flex <input id="sFX" type="number" min="0" max="4" value="1"></label>
-    <label>Superflex <input id="sSF" type="number" min="0" max="2" value="0"></label>
+    <label>Superflex <input id="sSF" type="number" min="0" max="2" value="1"></label>
     <label>Bench <input id="sBN" type="number" min="0" max="12" value="6"></label>
   </div>
 </div>
@@ -241,7 +265,7 @@
     </div>
 
     <div class="section">
-      <h2>Player pool</h2>
+      <h2 id="poolHead">Player pool</h2>
       <div class="tools">
         <input class="search" id="q" placeholder="Search a player to mark him drafted" autocomplete="off">
         <div class="tabs" id="tabs">
@@ -250,6 +274,12 @@
           <button data-p="RB" aria-pressed="false">RB</button>
           <button data-p="WR" aria-pressed="false">WR</button>
           <button data-p="TE" aria-pressed="false">TE</button>
+          <button data-p="K" aria-pressed="false" class="espOnly" hidden>K</button>
+          <button data-p="DST" aria-pressed="false" class="espOnly" hidden>D/ST</button>
+        </div>
+        <div class="tabs" id="views">
+          <button data-v="board" aria-pressed="true">Your board</button>
+          <button data-v="espn" aria-pressed="false">ESPN 300</button>
         </div>
         <button class="btn" id="showGone" aria-pressed="false">Show drafted</button>
       </div>
@@ -258,6 +288,8 @@
           <th style="width:26px"></th><th>Player</th>
           <th class="r" style="width:52px">Value</th>
           <th class="r" style="width:60px">Pts/wk</th>
+          <th class="r" style="width:52px">ESPN</th>
+          <th class="r" style="width:40px">Bye</th>
           <th class="r" style="width:118px"></th>
         </tr></thead>
         <tbody id="pool"></tbody>
@@ -279,8 +311,10 @@
   </div>
 </main>
 
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
 <footer>
-  Every ranking here is your board, untouched: players come off in descending value, with pts/wk breaking ties between equal dollar figures. Nothing is adjusted for position, scarcity, or draft-day market behavior. Gone-by-your-pick odds and the dollar edge on recommendations come from 300 simulated drafts run at every pick, where each simulated team takes near the top of your board with a little randomness. Roster needs are the only thing that shapes what gets recommended to you. Market watch is the one exception, and it is walled off: it runs a separate model that discounts quarterbacks in one-QB leagues, promotes them in superflex, pays a premium for the top two tight ends, and reacts to position runs — purely to flag where real drafters tend to diverge from a value board. It never reorders anything else.
+  Every ranking here is your board, untouched: players come off in descending value, with pts/wk breaking ties between equal dollar figures. Nothing is adjusted for position, scarcity, or draft-day market behavior. Gone-by-your-pick odds and the dollar edge on recommendations come from 300 simulated drafts run at every pick, where each simulated team takes near the top of your board with a little randomness. Roster needs are the only thing that shapes what gets recommended to you. Market watch is the one exception, and it is walled off: it runs a separate model that discounts quarterbacks in one-QB leagues, promotes them in superflex, pays a premium for the top two tight ends, and reacts to position runs — purely to flag where real drafters tend to diverge from a value board. It never reorders anything else. ESPN's overall rank, positional rank and bye week from the Sept 2 PPR Top 300 are shown next to every player as a second opinion — all 172 of your players matched. They are display only: nothing sorts, scores, simulates or recommends off them. The ESPN 300 tab lists all 300 in ESPN's order, including the 128 players, kickers and defenses your board doesn't carry, so you can mark them gone when they're picked. Those players are draftable but never ranked, never simulated and never recommended — they sit at the bottom of your lineup and count only toward the pick clock. Tap any player name to open his sheet: your own notes (saved in this browser, marked with an amber dot in the pool), four outbound searches, and headlines from the last two weeks fetched live through /api/news, which reads Google News and caches for five minutes. Headlines are titles and links only — follow the link to read the piece.
 </footer>
 
 <script>
@@ -350,18 +384,110 @@ const RAW = [
 ["TE","DEN","Evan Engram",0,-2.5],["TE","CAR","Darren Waller",0,-2.6],["TE","TEN","Gunnar Helm",0,-2.8]
 ];
 
+/* ===== ESPN 2026 PPR Top 300, Sept 2 2026 — reference only, never used for ordering =====
+   [overall rank, positional rank, name, team, bye] ===== */
+const ESPN300 = [
+  [1,"RB1","Jahmyr Gibbs","DET",6], [2,"RB2","Bijan Robinson","ATL",11], [3,"WR1","Ja'Marr Chase","CIN",6], [4,"WR2","Puka Nacua","LAR",11],
+  [5,"RB3","Jonathan Taylor","IND",13], [6,"WR3","Jaxon Smith-Njigba","SEA",11], [7,"RB4","Christian McCaffrey","SF",8], [8,"WR4","Amon-Ra St. Brown","DET",6],
+  [9,"RB5","James Cook III","BUF",7], [10,"WR5","CeeDee Lamb","DAL",14], [11,"WR6","Justin Jefferson","MIN",6], [12,"RB6","De'Von Achane","MIA",6],
+  [13,"RB7","Omarion Hampton","LAC",7], [14,"RB8","Chase Brown","CIN",6], [15,"RB9","Saquon Barkley","PHI",10], [16,"RB10","Derrick Henry","BAL",13],
+  [17,"RB11","Ashton Jeanty","LV",13], [18,"WR7","Drake London","ATL",11], [19,"RB12","Jeremiyah Love","ARI",14], [20,"WR8","A.J. Brown","NE",11],
+  [21,"TE1","Trey McBride","ARI",14], [22,"TE2","Brock Bowers","LV",13], [23,"WR9","Nico Collins","HOU",8], [24,"WR10","Chris Olave","NO",8],
+  [25,"WR11","Rashee Rice","KC",5], [26,"QB1","Josh Allen","BUF",7], [27,"WR12","George Pickens","DAL",14], [28,"RB13","Kenneth Walker III","KC",5],
+  [29,"WR13","Garrett Wilson","NYJ",13], [30,"RB14","Breece Hall","NYJ",13], [31,"RB15","Javonte Williams","DAL",14], [32,"RB16","Kyren Williams","LAR",11],
+  [33,"WR14","Malik Nabers","NYG",8], [34,"WR15","DeVonta Smith","PHI",10], [35,"RB17","Travis Etienne Jr.","NO",8], [36,"WR16","Tetairoa McMillan","CAR",5],
+  [37,"WR17","Zay Flowers","BAL",13], [38,"WR18","Emeka Egbuka","TB",10], [39,"RB18","Quinshon Judkins","CLE",11], [40,"WR19","Ladd McConkey","LAC",7],
+  [41,"WR20","Tee Higgins","CIN",6], [42,"TE3","Colston Loveland","CHI",10], [43,"QB2","Lamar Jackson","BAL",13], [44,"WR21","Davante Adams","LAR",11],
+  [45,"RB19","Cam Skattebo","NYG",8], [46,"RB20","D'Andre Swift","CHI",10], [47,"RB21","Bhayshul Tuten","JAC",7], [48,"WR22","Jaylen Waddle","DEN",10],
+  [49,"RB22","Bucky Irving","TB",10], [50,"WR23","Terry McLaurin","WAS",7], [51,"WR24","DJ Moore","BUF",7], [52,"TE4","Tyler Warren","IND",13],
+  [53,"WR25","Jameson Williams","DET",6], [54,"WR26","Rome Odunze","CHI",10], [55,"QB3","Jayden Daniels","WAS",7], [56,"QB4","Drake Maye","NE",11],
+  [57,"RB23","David Montgomery","HOU",8], [58,"RB24","Jadarian Price","SEA",11], [59,"WR27","Luther Burden III","CHI",10], [60,"RB25","TreVeyon Henderson","NE",11],
+  [61,"WR28","Carnell Tate","TEN",9], [62,"WR29","Mike Evans","SF",8], [63,"WR30","Marvin Harrison Jr.","ARI",14], [64,"QB5","Joe Burrow","CIN",6],
+  [65,"RB26","Rhamondre Stevenson","NE",11], [66,"QB6","Jalen Hurts","PHI",10], [67,"WR31","Michael Pittman Jr.","PIT",9], [68,"RB27","Tony Pollard","TEN",9],
+  [69,"TE5","Harold Fannin Jr.","CLE",11], [70,"TE6","Kyle Pitts Sr.","ATL",11], [71,"WR32","DK Metcalf","PIT",9], [72,"TE7","George Kittle","SF",8],
+  [73,"WR33","Courtland Sutton","DEN",10], [74,"WR34","Christian Watson","GB",11], [75,"QB7","Dak Prescott","DAL",14], [76,"WR35","Parker Washington","JAC",7],
+  [77,"RB28","Jaylen Warren","PIT",9], [78,"TE8","Sam LaPorta","DET",6], [79,"RB29","Kenny Gainwell","TB",10], [80,"QB8","Jaxson Dart","NYG",8],
+  [81,"RB30","Josh Jacobs","GB",11], [82,"WR36","Wan'Dale Robinson","TEN",9], [83,"RB31","Jonathon Brooks","CAR",5], [84,"QB9","Justin Herbert","LAC",7],
+  [85,"WR37","Michael Wilson","ARI",14], [86,"RB32","MarShawn Lloyd","GB",11], [87,"QB10","Caleb Williams","CHI",10], [88,"RB33","Rico Dowdle","PIT",9],
+  [89,"WR38","Stefon Diggs","WAS",7], [90,"WR39","Alec Pierce","IND",13], [91,"TE9","Tucker Kraft","GB",11], [92,"RB34","Chuba Hubbard","CAR",5],
+  [93,"WR40","Jakobi Meyers","JAC",7], [94,"QB11","Trevor Lawrence","JAC",7], [95,"RB35","Aaron Jones Sr.","MIN",6], [96,"WR41","Brian Thomas Jr.","JAC",7],
+  [97,"K1","Brandon Aubrey","DAL",14], [98,"QB12","Brock Purdy","SF",8], [99,"RB36","Rachaad White","WAS",7], [100,"RB37","J.K. Dobbins","DEN",10],
+  [101,"RB38","Kyle Monangai","CHI",10], [102,"TE10","Travis Kelce","KC",5], [103,"WR42","Matthew Golden","GB",11], [104,"WR43","Chris Godwin Jr.","TB",10],
+  [105,"WR44","Jordan Addison","MIN",6], [106,"WR45","Josh Downs","IND",13], [107,"TE11","Dallas Goedert","PHI",10], [108,"RB39","RJ Harvey","DEN",10],
+  [109,"QB13","Patrick Mahomes","KC",5], [110,"WR46","Khalil Shakir","BUF",7], [111,"RB40","Blake Corum","LAR",11], [112,"QB14","Bo Nix","DEN",10],
+  [113,"QB15","Matthew Stafford","LAR",11], [114,"TE12","Jake Ferguson","DAL",14], [115,"WR47","Makai Lemon","PHI",10], [116,"TE13","Isaiah Likely","NYG",8],
+  [117,"WR48","Quentin Johnston","LAC",7], [118,"RB41","Jacory Croskey-Merritt","WAS",7], [119,"WR49","Jayden Reed","GB",11], [120,"TE14","Mark Andrews","BAL",13],
+  [121,"WR50","De'Zhaun Stribling","SF",8], [122,"QB16","Kyler Murray","MIN",6], [123,"WR51","Xavier Worthy","KC",5], [124,"WR52","Romeo Doubs","NE",11],
+  [125,"WR53","Jalen Coker","CAR",5], [126,"TE15","Dalton Kincaid","BUF",7], [127,"RB42","Tyjae Spears","TEN",9], [128,"K2","Cameron Dicker","LAC",7],
+  [129,"QB17","Tyler Shough","NO",8], [130,"RB43","Jordan Mason","MIN",6], [131,"WR54","Deebo Samuel Sr.","SF",8], [132,"QB18","Jared Goff","DET",6],
+  [133,"RB44","Woody Marks","HOU",8], [134,"K3","Jason Myers","SEA",11], [135,"WR55","KC Concepcion","CLE",11], [136,"WR56","Jalen McMillan","TB",10],
+  [137,"WR57","Tank Dell","HOU",8], [138,"DST1","Texans D/ST","HOU",8], [139,"RB45","Zach Charbonnet","SEA",11], [140,"DST2","Broncos D/ST","DEN",10],
+  [141,"RB46","Jonah Coleman","DEN",10], [142,"QB19","Baker Mayfield","TB",10], [143,"K4","Ka'imi Fairbairn","HOU",8], [144,"RB47","Isiah Pacheco","DET",6],
+  [145,"RB48","Chris Rodriguez Jr.","JAC",7], [146,"K5","Harrison Mevis","LAR",11], [147,"QB20","Daniel Jones","IND",13], [148,"TE16","Juwan Johnson","NO",8],
+  [149,"RB49","Alvin Kamara","NO",8], [150,"RB50","Tyler Allgeier","ARI",14], [151,"RB51","Mike Washington Jr.","LV",13], [152,"RB52","Dylan Sampson","CLE",11],
+  [153,"TE17","Hunter Henry","NE",11], [154,"TE18","T.J. Hockenson","MIN",6], [155,"RB53","Keaton Mitchell","LAC",7], [156,"WR58","Keenan Allen","IND",13],
+  [157,"RB54","Samaje Perine","CIN",6], [158,"K6","Eddy Pineiro","SF",8], [159,"QB21","Jordan Love","GB",11], [160,"RB55","Brian Robinson Jr.","ATL",11],
+  [161,"TE19","Terrance Ferguson","LAR",11], [162,"WR59","Rashid Shaheed","SEA",11], [163,"WR60","Denzel Boston","CLE",11], [164,"WR61","Jerry Jeudy","CLE",11],
+  [165,"WR62","Calvin Ridley","TEN",9], [166,"WR63","Adonai Mitchell","NYJ",13], [167,"WR64","Travis Hunter","JAC",7], [168,"WR65","Caleb Douglas","MIA",6],
+  [169,"QB22","Malik Willis","MIA",6], [170,"WR66","Jordyn Tyson","NO",8], [171,"WR67","Tre Tucker","LV",13], [172,"WR68","Jalen Nailor","LV",13],
+  [173,"RB56","Braelon Allen","NYJ",13], [174,"RB57","Tank Bigsby","PHI",10], [175,"TE20","Kenyon Sadiq","NYJ",13], [176,"WR69","Rashod Bateman","BAL",13],
+  [177,"WR70","Dontayvion Wicks","PHI",10], [178,"WR71","Devaughn Vele","NO",8], [179,"WR72","Jaylin Noel","HOU",8], [180,"RB58","Ray Davis","BUF",7],
+  [181,"RB59","Najee Harris","NYG",8], [182,"DST3","Steelers D/ST","PIT",9], [183,"DST4","Seahawks D/ST","SEA",11], [184,"DST5","Rams D/ST","LAR",11],
+  [185,"DST6","Ravens D/ST","BAL",13], [186,"DST7","Eagles D/ST","PHI",10], [187,"DST8","Browns D/ST","CLE",11], [188,"DST9","Patriots D/ST","NE",11],
+  [189,"DST10","Lions D/ST","DET",6], [190,"DST11","Chiefs D/ST","KC",5], [191,"DST12","Chargers D/ST","LAC",7], [192,"K7","Harrison Butker","KC",5],
+  [193,"K8","Cam Little","JAC",7], [194,"K9","Jake Bates","DET",6], [195,"K10","Tyler Loop","BAL",13], [196,"K11","Cairo Santos","CHI",10],
+  [197,"K12","Will Reichard","MIN",6], [198,"TE21","Brenton Strange","JAC",7], [199,"RB60","Justice Hill","BAL",13], [200,"RB61","Kaelon Black","SF",8],
+  [201,"WR73","Ja'Kobi Lane","BAL",13], [202,"QB23","C.J. Stroud","HOU",8], [203,"QB24","Sam Darnold","SEA",11], [204,"WR74","Jauan Jennings","MIN",6],
+  [205,"WR75","Malachi Fields","NYG",8], [206,"WR76","Germie Bernard","PIT",9], [207,"WR77","Tre Harris","LAC",7], [208,"WR78","Ryan Flournoy","DAL",14],
+  [209,"TE22","Pat Freiermuth","PIT",9], [210,"TE23","Dalton Schultz","HOU",8], [211,"WR79","Zachariah Branch","ATL",11], [212,"WR80","Omar Cooper Jr.","NYJ",13],
+  [213,"WR81","Kayshon Boutte","HOU",8], [214,"WR82","Malik Washington","MIA",6], [215,"RB62","Kimani Vidal","LAC",7], [216,"RB63","Jaylen Wright","MIA",6],
+  [217,"RB64","Ollie Gordon II","MIA",6], [218,"TE24","Gunnar Helm","TEN",9], [219,"TE25","Chig Okonkwo","WAS",7], [220,"TE26","AJ Barner","SEA",11],
+  [221,"QB25","Bryce Young","CAR",5], [222,"QB26","Cam Ward","TEN",9], [223,"QB27","Jacoby Brissett","ARI",14], [224,"RB65","Ty Johnson","BUF",7],
+  [225,"RB66","Chris Brooks","GB",11], [226,"WR83","Cooper Kupp","SEA",11], [227,"RB67","Brashard Smith","KC",5], [228,"RB68","Malik Davis","DAL",14],
+  [229,"WR84","Xavier Legette","CAR",5], [230,"WR85","Jahan Dotson","ATL",11], [231,"WR86","Xavier Hutchinson","HOU",8], [232,"WR87","Jalen Tolbert","MIA",6],
+  [233,"WR88","Chris Bell","MIA",6], [234,"WR89","DeMario Douglas","NE",11], [235,"WR90","Darius Slayton","NYG",8], [236,"WR91","Antonio Williams","WAS",7],
+  [237,"DST13","Buccaneers D/ST","TB",10], [238,"DST14","Packers D/ST","GB",11], [239,"K13","Chris Boswell","PIT",9], [240,"K14","Chase McLaughlin","TB",10],
+  [241,"RB69","Emmett Johnson","KC",5], [242,"RB70","Isaiah Davis","NYJ",13], [243,"RB71","Jacob Saylors","DET",6], [244,"RB72","LeQuint Allen","JAC",7],
+  [245,"RB73","George Holani","SEA",11], [246,"RB74","Tyrone Tracy Jr.","NYG",8], [247,"RB75","Sean Tucker","TB",10], [248,"RB76","Seth McGowan","IND",13],
+  [249,"RB77","Jordan James","SF",8], [250,"RB78","Will Shipley","PHI",10], [251,"RB79","Emanuel Wilson","SEA",11], [252,"RB80","Emari Demercado","DAL",14],
+  [253,"WR92","Tyquan Thornton","KC",5], [254,"WR93","Keon Coleman","BUF",7], [255,"DST15","Jaguars D/ST","JAC",7], [256,"DST16","Saints D/ST","NO",8],
+  [257,"K15","Evan McPherson","CIN",6], [258,"K16","Nick Folk","ATL",11], [259,"TE27","Greg Dulcich","MIA",6], [260,"TE28","Darren Waller","CAR",5],
+  [261,"TE29","Cade Otton","TB",10], [262,"WR94","Isaac TeSlaa","DET",6], [263,"WR95","Pat Bryant","DEN",10], [264,"WR96","Marvin Mims Jr.","DEN",10],
+  [265,"WR97","Andrei Iosivas","CIN",6], [266,"RB81","Kaleb Johnson","GB",11], [267,"RB82","Nicholas Singleton","TEN",9], [268,"QB28","Geno Smith","NYJ",13],
+  [269,"QB29","Fernando Mendoza","LV",13], [270,"QB30","Aaron Rodgers","PIT",9], [271,"QB31","Deshaun Watson","CLE",11], [272,"WR98","Kevin Coleman Jr.","MIA",6],
+  [273,"WR99","KaVontae Turpin","DAL",14], [274,"WR100","Jack Bech","LV",13], [275,"WR101","Tory Horton","SEA",11], [276,"RB83","Kendre Miller","NO",8],
+  [277,"RB84","Tahj Brooks","CIN",6], [278,"RB85","Demond Claiborne","MIN",6], [279,"RB86","Rasheen Ali","BAL",13], [280,"RB87","Kaytron Allen","WAS",7],
+  [281,"RB88","DJ Giddens","IND",13], [282,"RB89","Sione Vaki","DET",6], [283,"RB90","Kene Nwangwu","NYJ",13], [284,"WR102","Ted Hurst","TB",10],
+  [285,"DST17","Jets D/ST","NYJ",13], [286,"DST18","49ers D/ST","SF",8], [287,"K17","Trey Smack","GB",11], [288,"K18","Spencer Shrader","IND",13],
+  [289,"TE30","Evan Engram","DEN",10], [290,"TE31","David Njoku","LAC",7], [291,"TE32","Oronde Gadsden","LAC",7], [292,"TE33","Mike Gesicki","CIN",6],
+  [293,"TE34","Michael Mayer","LV",13], [294,"WR103","Darnell Mooney","NYG",8], [295,"WR104","Mack Hollins","NE",11], [296,"QB32","Tua Tagovailoa","ATL",11],
+  [297,"DST19","Cowboys D/ST","DAL",14], [298,"DST20","Colts D/ST","IND",13], [299,"DST21","Vikings D/ST","MIN",6], [300,"DST22","Bengals D/ST","CIN",6]
+];
+// board player name -> ESPN overall rank (all 172 matched by name + team + position)
+const ESPN_MATCH = {"Jahmyr Gibbs":1, "Bijan Robinson":2, "Ja'Marr Chase":3, "Puka Nacua":4, "Jonathan Taylor":5, "Jaxon Smith-Njigba":6, "Christian McCaffrey":7, "Amon-Ra St. Brown":8, "James Cook":9, "CeeDee Lamb":10, "Justin Jefferson":11, "De'Von Achane":12, "Omarion Hampton":13, "Chase Brown":14, "Saquon Barkley":15, "Derrick Henry":16, "Ashton Jeanty":17, "Drake London":18, "Jeremiah Love":19, "A.J. Brown":20, "Trey McBride":21, "Brock Bowers":22, "Nico Collins":23, "Chris Olave":24, "Rashee Rice":25, "Josh Allen":26, "George Pickens":27, "Kenneth Walker":28, "Garrett Wilson":29, "Breece Hall":30, "Javonte Williams":31, "Kyren Williams":32, "Malik Nabers":33, "DeVonta Smith":34, "Travis Etienne":35, "Tetairoa McMillan":36, "Zay Flowers":37, "Emeka Egbuka":38, "Quinshon Judkins":39, "Ladd McConkey":40, "Tee Higgins":41, "Colston Loveland":42, "Lamar Jackson":43, "Davante Adams":44, "Cam Skattebo":45, "D'Andre Swift":46, "Bhayshul Tuten":47, "Jaylen Waddle":48, "Bucky Irving":49, "Terry McLaurin":50, "DJ Moore":51, "Tyler Warren":52, "Jameson Williams":53, "Rome Odunze":54, "Jayden Daniels":55, "Drake Maye":56, "David Montgomery":57, "Jadarian Price":58, "Luther Burden III":59, "TreVeyon Henderson":60, "Carnell Tate":61, "Mike Evans":62, "Marvin Harrison Jr.":63, "Joe Burrow":64, "Rhamondre Stevenson":65, "Jalen Hurts":66, "Michael Pittman":67, "Tony Pollard":68, "Harold Fannin Jr.":69, "Kyle Pitts":70, "DK Metcalf":71, "George Kittle":72, "Courtland Sutton":73, "Christian Watson":74, "Dak Prescott":75, "Parker Washington":76, "Jaylen Warren":77, "Sam LaPorta":78, "Kenneth Gainwell":79, "Jaxson Dart":80, "Josh Jacobs":81, "Wan'Dale Robinson":82, "Jonathon Brooks":83, "Justin Herbert":84, "Michael Wilson":85, "MarShawn Lloyd":86, "Caleb Williams":87, "Rico Dowdle":88, "Stefon Diggs":89, "Alec Pierce":90, "Tucker Kraft":91, "Chuba Hubbard":92, "Jakobi Meyers":93, "Trevor Lawrence":94, "Aaron Jones":95, "Brian Thomas Jr.":96, "Brock Purdy":98, "Rachaad White":99, "J.K. Dobbins":100, "Kyle Monangai":101, "Travis Kelce":102, "Matthew Golden":103, "Chris Godwin":104, "Jordan Addison":105, "Josh Downs":106, "Dallas Goedert":107, "RJ Harvey":108, "Patrick Mahomes":109, "Khalil Shakir":110, "Blake Corum":111, "Bo Nix":112, "Matthew Stafford":113, "Jake Ferguson":114, "Makai Lemon":115, "Isaiah Likely":116, "Quentin Johnston":117, "Jacory Croskey-Merritt":118, "Jayden Reed":119, "Mark Andrews":120, "De'Zhaun Stribling":121, "Kyler Murray":122, "Xavier Worthy":123, "Romeo Doubs":124, "Jalen Coker":125, "Dalton Kincaid":126, "Tyjae Spears":127, "Tyler Shough":129, "Jordan Mason":130, "Deebo Samuel":131, "Jared Goff":132, "Woody Marks":133, "KC Concepcion":135, "Jalen McMillan":136, "Zach Charbonnet":139, "Baker Mayfield":142, "Daniel Jones":147, "Juwan Johnson":148, "Dylan Sampson":152, "Hunter Henry":153, "T.J. Hockenson":154, "Keenan Allen":156, "Jordan Love":159, "Terrance Ferguson":161, "Rashid Shaheed":162, "Denzel Boston":163, "Jerry Jeudy":164, "Calvin Ridley":165, "Malik Willis":169, "Tre Tucker":171, "Kenyon Sadiq":175, "Rashod Bateman":176, "Brenton Strange":198, "C.J. Stroud":202, "Sam Darnold":203, "Jauan Jennings":204, "Pat Freiermuth":209, "Dalton Schultz":210, "Gunnar Helm":218, "Chigoziem Okonkwo":219, "AJ Barner":220, "Bryce Young":221, "Cam Ward":222, "Jacoby Brissett":223, "Greg Dulcich":259, "Darren Waller":260, "Cade Otton":261, "Geno Smith":268, "Fernando Mendoza":269, "Aaron Rodgers":270, "Deshaun Watson":271, "Evan Engram":289, "Tua Tagovailoa":296};
+
 const P = RAW.map((r,i)=>({id:i,pos:r[0],tm:r[1],name:r[2],val:r[3],wk:r[4]}));
 const posRank={}; P.forEach(p=>{posRank[p.pos]=(posRank[p.pos]||0)+1; p.pr=posRank[p.pos];});
 // worth = your dollar value. pts/wk only separates players tied on value (max shift 0.13)
 P.forEach(p=>{p.worth = p.val + p.wk/100;});
+const ESPN_BY_RANK={}; ESPN300.forEach(e=>ESPN_BY_RANK[e[0]]=e);
+P.forEach(p=>{ const e=ESPN_BY_RANK[ESPN_MATCH[p.name]]; p.esp=e?e[0]:null; p.epr=e?e[1]:null; p.bye=e?e[4]:null; });
+// players ESPN ranks but your board doesn't list — draftable, never ranked, never recommended
+const MATCHED=new Set(Object.values(ESPN_MATCH));
+ESPN300.filter(e=>!MATCHED.has(e[0])).forEach(e=>{
+  P.push({id:P.length, pos:e[1].replace(/\d+/,""), tm:e[3], name:e[2], val:null, wk:null,
+          worth:-999, pr:+e[1].replace(/\D+/g,""), esp:e[0], epr:e[1], bye:e[4], off:true});
+});
+const espTxt = p => p.esp ? "ESPN #"+p.esp+" ("+p.epr+")" : "unranked at ESPN";
+const byeTxt = p => p.bye ? "bye "+p.bye : "";
 
 /* ===== state ===== */
 let S = {
-  teams:12, slot:6, need:{QB:1,RB:2,WR:3,TE:1,FLEX:1,SFX:0,BENCH:6},
+  teams:12, slot:6, need:{QB:1,RB:2,WR:3,TE:1,FLEX:1,SFX:1,BENCH:6},
   gone:{},          // id -> 'me' | 'other'
   order:[]          // ids in pick order
 };
-let filter="ALL", showGone=false, query="";
+let filter="ALL", showGone=false, query="", view="board";
 
 /* ===== board order: strictly your values ===== */
 function boardScore(p){ return p.worth; }
@@ -387,7 +513,7 @@ function mktScore(p, runs){
   return Math.max(0.1,(p.val*m + prem + Math.max(0,p.wk)*1.1) * (1 + 0.07*(runs[p.pos]||0)));
 }
 function totalPicks(){ const n=S.need; return S.teams*(n.QB+n.RB+n.WR+n.TE+n.FLEX+(n.SFX||0)+n.BENCH); }
-function available(){ return P.filter(p=>!S.gone[p.id]); }
+function available(){ return P.filter(p=>!S.gone[p.id] && !p.off); }
 function scored(){
   return available().map(p=>({p,s:boardScore(p)})).sort((a,b)=>b.s-a.s);
 }
@@ -446,7 +572,7 @@ function myPlayers(){ return S.order.filter(id=>S.gone[id]==="me").map(id=>P[id]
 function fillSlots(){
   const n=S.need, slots=[];
   const byPos={QB:[],RB:[],WR:[],TE:[]};
-  myPlayers().slice().sort((a,b)=>b.worth-a.worth).forEach(p=>byPos[p.pos].push(p));
+  myPlayers().slice().sort((a,b)=>b.worth-a.worth).forEach(p=>{ if(byPos[p.pos]) byPos[p.pos].push(p); });
   const used=new Set();
   const take=(ps)=>{ const a=byPos[ps]; for(const p of a){ if(!used.has(p.id)){used.add(p.id); return p;} } return null; };
   ["QB","RB","WR","TE"].forEach(ps=>{
@@ -485,7 +611,7 @@ function needWeight(pos){
 /* ===== render ===== */
 const $=id=>document.getElementById(id);
 function fmtV(v){ return v>0? "$"+v : "—"; }
-function fmtW(w){ return (w>0?"+":"")+w.toFixed(1); }
+function fmtW(w){ return (w===null||w===undefined)?"—":(w>0?"+":"")+w.toFixed(1); }
 
 function render(){
   const here=S.order.length;
@@ -511,8 +637,9 @@ function render(){
       <div class="rank num">${i+1}</div>
       <div class="val num">${fmtV(p.val)}<small>${fmtW(p.wk)}/wk</small></div>
       <div>
-        <div class="nm">${p.name}</div>
-        <div class="meta"><span class="pos">${p.pos}${p.pr}</span> · ${p.tm} · ${nextOdds}% to go next</div>
+        <div class="nm lnk" data-info="${p.id}">${p.name}${NOTES[p.name]?'<i class="dot"></i>':''}</div>
+        <div class="meta"><span class="pos">${p.pos}${p.pr}</span> · ${p.tm} · ${byeTxt(p)} · ${nextOdds}% to go next</div>
+        <div class="meta" style="color:var(--dim)">${espTxt(p)}</div>
         ${sim.span>0?`<div class="gonebar"><span><i style="width:${g}%"></i></span><b>${g}% gone by your ${pickLabel(sim.target)} pick</b></div>`:""}
       </div>
       <div class="acts">
@@ -542,7 +669,7 @@ function render(){
     if(g>=55) reasons.push(`<em>${g}% gone</em> if you wait`);
     return `<div class="rec">
       <div>
-        <div class="nm">${r.p.name} <span class="pill">${r.p.pos}${r.p.pr} ${r.p.tm}</span></div>
+        <div class="nm"><span class="lnk" data-info="${r.p.id}">${r.p.name}</span> <span class="pill">${r.p.pos}${r.p.pr} ${r.p.tm}</span> <span class="pill">${r.p.esp?"ESPN "+r.p.esp:"ESPN —"}</span> <span class="pill">${r.p.bye?"bye "+r.p.bye:"bye —"}</span></div>
         <div class="why">${reasons.join(" · ")}</div>
       </div>
       <div style="text-align:right">
@@ -557,34 +684,42 @@ function render(){
 
   // pool
   const q=query.trim().toLowerCase();
+  const espView = view==="espn";
   const rows=P.filter(p=>{
+    if(espView ? !p.esp : p.off) return false;
     if(filter!=="ALL" && p.pos!==filter) return false;
     if(!showGone && S.gone[p.id] && !q) return false;
-    if(q && !(p.name.toLowerCase().includes(q)||p.tm.toLowerCase()===q)) return false;
+    if(q && !(p.name.toLowerCase().includes(q)||p.tm.toLowerCase()===q||String(p.esp)===q)) return false;
     return true;
-  }).sort((a,b)=>b.worth-a.worth).slice(0,120);
+  }).sort((a,b)=> espView ? a.esp-b.esp : b.worth-a.worth).slice(0, espView?300:120);
   $("pool").innerHTML = rows.map(p=>{
     const st=S.gone[p.id];
     return `<tr class="${st==='me'?'mine':st?'gone':''}">
-      <td class="tm">${p.pos}${p.pr}</td>
-      <td><span class="pname">${p.name}</span> <span class="tm">${p.tm}</span></td>
+      <td class="tm">${espView ? p.epr : p.pos+p.pr}</td>
+      <td><span class="pname lnk" data-info="${p.id}">${p.name}</span>${NOTES[p.name]?'<i class="dot"></i>':''} <span class="tm">${p.tm}</span>${p.off?' <span class="pill">not on your board</span>':''}</td>
       <td class="r num">${fmtV(p.val)}</td>
       <td class="r num" style="color:${p.wk>=0?'var(--gain)':'var(--loss)'}">${fmtW(p.wk)}</td>
+      <td class="r num tm" title="${p.epr||''}">${p.esp?"#"+p.esp:"—"}</td>
+      <td class="r num tm">${p.bye||"—"}</td>
       <td class="r">${st ? (st==='me'?'<span class="tm">your pick</span>':'<span class="tm">drafted</span>')
         : `<button class="mini" data-go="${p.id}">Gone</button> <button class="mini m" data-me="${p.id}">Mine</button>`}</td>
     </tr>`;
-  }).join("") || `<tr><td colspan="5" class="empty">No player by that name is still on the board. Try a last name.</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty">No player by that name is still on the board. Try a last name.</td></tr>`;
+
+  $("poolHead").innerHTML = view==="espn"
+    ? 'Player pool <span>— ESPN\'s top 300, their order</span>'
+    : 'Player pool <span>— your board, your order</span>';
 
   // roster
   const {slots:sl, bench}=fillSlots();
   $("roster").innerHTML = sl.map(s=>`
     <div class="slot ${s.p?'filled':''}">
       <div class="lbl">${s.lbl}</div>
-      <div>${s.p?`<div class="pn">${s.p.name}</div>`:`<span class="ph">open</span>`}</div>
+      <div>${s.p?`<div class="pn">${s.p.name} <span class="tm">bye ${s.p.bye||"—"}</span></div>`:`<span class="ph">open</span>`}</div>
       <div class="pv num">${s.p?fmtW(s.p.wk):""}</div>
     </div>`).join("") +
-    bench.map(p=>`<div class="slot filled"><div class="lbl">BN</div><div><div class="pn">${p.name}</div></div><div class="pv num">${fmtW(p.wk)}</div></div>`).join("");
-  const pts=sl.reduce((a,s)=>a+(s.p?s.p.wk:0),0);
+    bench.map(p=>`<div class="slot filled"><div class="lbl">BN</div><div><div class="pn">${p.name} <span class="tm">bye ${p.bye||"—"}</span></div></div><div class="pv num">${fmtW(p.wk)}</div></div>`).join("");
+  const pts=sl.reduce((a,s)=>a+((s.p&&s.p.wk)||0),0);
   $("totPts").textContent = fmtW(pts)+" pts/wk over replacement";
   $("needs").innerHTML = ["QB","RB","WR","TE"].map(ps=>{
     const w=needWeight(ps);
@@ -642,12 +777,93 @@ function renderMarket(board, sim){
       ${late.map(skewRow).join("") || `<div class="sub">No obvious fallers right now.</div>`}</div>`;
 }
 
+/* ===== notes (this browser only) ===== */
+const NKEY="draftNotes2026";
+let NOTES={};
+try{ NOTES=JSON.parse(localStorage.getItem(NKEY)||"{}"); }catch(e){ NOTES={}; }
+function saveNotes(){ try{ localStorage.setItem(NKEY, JSON.stringify(NOTES)); }catch(e){} }
+
+/* ===== player sheet: notes, links, live headlines ===== */
+const NEWS_CACHE={};
+let sheetFor=null;
+
+function openSheet(id){
+  const p=P[id]; sheetFor=id;
+  const q=encodeURIComponent(p.name);
+  const st=S.gone[p.id];
+  $("sheet").innerHTML=`
+    <div class="top">
+      <div>
+        <h3>${p.name}</h3>
+        <div class="sub2">${p.pos}${p.off?"":p.pr} · ${p.tm} · bye ${p.bye||"—"} · ${p.off?"not on your board":"board value "+fmtV(p.val)+" · "+fmtW(p.wk)+"/wk"} · ${p.esp?"ESPN #"+p.esp+" ("+p.epr+")":"unranked at ESPN"}</div>
+      </div>
+      <button class="x" id="mX" aria-label="Close">&times;</button>
+    </div>
+    <div class="row">
+      ${st ? `<span class="tm">${st==="me"?"On your roster":"Already drafted"}</span>`
+           : `<button class="take" data-go="${p.id}">Mark gone</button>
+              <button class="take mine" data-me="${p.id}">I got him</button>`}
+    </div>
+    <div class="cap2">Your notes</div>
+    <textarea id="mNote" placeholder="Handcuff. Don't reach before round 6.">${(NOTES[p.name]||"").replace(/</g,"&lt;")}</textarea>
+    <div class="cap2">Recent headlines</div>
+    <div class="news" id="mNews"><div class="sub">Loading…</div></div>
+    <div class="row">
+      <a class="out" target="_blank" rel="noopener" href="https://news.google.com/search?q=${q}">Google News</a>
+      <a class="out" target="_blank" rel="noopener" href="https://x.com/search?q=${q}&f=live">X / Twitter</a>
+      <a class="out" target="_blank" rel="noopener" href="https://www.espn.com/search/results?q=${q}">ESPN</a>
+      <a class="out" target="_blank" rel="noopener" href="https://www.reddit.com/r/fantasyfootball/search/?q=${q}&restrict_sr=1&sort=new">r/fantasyfootball</a>
+    </div>`;
+  $("modal").classList.add("open");
+  $("mX").onclick=closeSheet;
+  const ta=$("mNote");
+  if(ta) ta.addEventListener("input",()=>{
+    const v=ta.value.trim();
+    if(v) NOTES[p.name]=v; else delete NOTES[p.name];
+    saveNotes();
+  });
+  loadNews(p);
+}
+function closeSheet(){ $("modal").classList.remove("open"); sheetFor=null; render(); }
+
+async function loadNews(p){
+  const box=$("mNews");
+  if(NEWS_CACHE[p.name]){ paintNews(box, NEWS_CACHE[p.name]); return; }
+  try{
+    const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),7000);
+    const r=await fetch("/api/news?q="+encodeURIComponent(p.name),{signal:ctrl.signal});
+    clearTimeout(t);
+    if(!r.ok) throw new Error("bad status");
+    const d=await r.json();
+    NEWS_CACHE[p.name]=d.items||[];
+    if(sheetFor===p.id) paintNews(box, NEWS_CACHE[p.name]);
+  }catch(e){
+    if(sheetFor===p.id) box.innerHTML=`<div class="sub">Headlines need the deployed site — /api/news isn't answering here. The links below work anywhere.</div>`;
+  }
+}
+function paintNews(box, items){
+  if(!items.length){ box.innerHTML=`<div class="sub">No headlines in the last two weeks.</div>`; return; }
+  box.innerHTML=items.map(i=>{
+    const d=i.date?new Date(i.date):null;
+    const when=d&&!isNaN(d)?d.toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";
+    return `<a href="${i.link}" target="_blank" rel="noopener">${i.title}
+      <div class="src">${[i.source,when].filter(Boolean).join(" · ")}</div></a>`;
+  }).join("");
+}
+
+$("modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeSheet(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && sheetFor!==null) closeSheet(); });
+
 /* ===== actions ===== */
-function draft(id, who){ if(S.gone[id]) return; S.gone[id]=who; S.order.push(id); query=""; $("q").value=""; render(); }
+function draft(id, who){ if(S.gone[id]) return; S.gone[id]=who; S.order.push(id); query=""; $("q").value=""; if(sheetFor===null) render(); }
 document.addEventListener("click", e=>{
+  const info=e.target.closest("[data-info]");
   const g=e.target.closest("[data-go]"), m=e.target.closest("[data-me]");
-  if(g) draft(+g.dataset.go,"other");
-  else if(m) draft(+m.dataset.me,"me");
+  if(info){ openSheet(+info.dataset.info); return; }
+  if(g||m){
+    if(g) draft(+g.dataset.go,"other"); else draft(+m.dataset.me,"me");
+    if(sheetFor!==null) closeSheet();
+  }
 });
 $("undo").onclick=()=>{ const id=S.order.pop(); if(id!==undefined) delete S.gone[id]; render(); };
 $("reset").onclick=()=>{ if(!S.order.length||confirm("Clear every pick and start over?")){ S.gone={}; S.order=[]; try{localStorage.removeItem(KEY);}catch(e){} render(); } };
@@ -664,6 +880,17 @@ $("tabs").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   filter=b.dataset.p;
   [...$("tabs").children].forEach(x=>x.setAttribute("aria-pressed", x===b));
+  render();
+});
+$("views").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  view=b.dataset.v;
+  [...$("views").children].forEach(x=>x.setAttribute("aria-pressed", x===b));
+  document.querySelectorAll(".espOnly").forEach(x=>x.hidden = view!=="espn");
+  if(view!=="espn" && (filter==="K"||filter==="DST")){
+    filter="ALL";
+    [...$("tabs").children].forEach(x=>x.setAttribute("aria-pressed", x.dataset.p==="ALL"));
+  }
   render();
 });
 $("showGone").onclick=e=>{ showGone=!showGone; e.target.setAttribute("aria-pressed",showGone); e.target.textContent=showGone?"Hide drafted":"Show drafted"; render(); };
@@ -688,7 +915,7 @@ function load(){
       S = v;
       $("sTeams").value = S.teams; $("sSlot").value = S.slot;
       $("sQB").value = S.need.QB; $("sRB").value = S.need.RB; $("sWR").value = S.need.WR;
-      if(S.need.SFX===undefined) S.need.SFX = 0;
+      if(S.need.SFX===undefined) S.need.SFX = 1;
       $("sTE").value = S.need.TE; $("sFX").value = S.need.FLEX;
       $("sSF").value = S.need.SFX; $("sBN").value = S.need.BENCH;
     }
