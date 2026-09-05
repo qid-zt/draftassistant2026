@@ -247,7 +247,7 @@
     <label>RB <input id="sRB" type="number" min="0" max="5" value="2"></label>
     <label>WR <input id="sWR" type="number" min="0" max="6" value="3"></label>
     <label>TE <input id="sTE" type="number" min="0" max="3" value="1"></label>
-    <label>Flex <input id="sFX" type="number" min="0" max="4" value="2"></label>
+    <label>Flex <input id="sFX" type="number" min="0" max="4" value="1"></label>
     <label>Superflex <input id="sSF" type="number" min="0" max="2" value="1"></label>
     <label>Bench <input id="sBN" type="number" min="0" max="12" value="6"></label>
   </div>
@@ -297,7 +297,7 @@
           <th class="r" style="width:60px">Pts/wk</th>
           <th class="r" style="width:52px">ESPN</th>
           <th class="r" style="width:40px">Bye</th>
-          <th class="r" style="width:118px"></th>
+          <th class="r" style="width:150px"></th>
         </tr></thead>
         <tbody id="pool"></tbody>
       </table>
@@ -713,7 +713,8 @@ function render(){
       <td class="r num" style="color:${p.wk>=0?'var(--gain)':'var(--loss)'}">${fmtW(p.wk)}</td>
       <td class="r num tm" title="${p.epr||''}">${p.esp?"#"+p.esp:"—"}</td>
       <td class="r num tm">${p.bye||"—"}</td>
-      <td class="r">${st ? (st==='me'?'<span class="tm">your pick</span>':'<span class="tm">drafted</span>')
+      <td class="r">${st
+        ? `<span class="tm">${st==='me'?'yours':'gone'}</span> <button class="mini" data-undo="${p.id}">Undo</button>`
         : `<button class="mini" data-go="${p.id}">Gone</button> <button class="mini m" data-me="${p.id}">Mine</button>`}</td>
     </tr>`;
   }).join("") || `<tr><td colspan="7" class="empty">No player by that name is still on the board. Try a last name.</td></tr>`;
@@ -812,7 +813,8 @@ function openSheet(id){
       <button class="x" id="mX" aria-label="Close">&times;</button>
     </div>
     <div class="row">
-      ${st ? `<span class="tm">${st==="me"?"On your roster":"Already drafted"}</span>`
+      ${st ? `<span class="tm">${st==="me"?"On your roster":"Already drafted"}</span>
+              <button class="take" data-undo="${p.id}">Put him back</button>`
            : `<button class="take" data-go="${p.id}">Mark gone</button>
               <button class="take mine" data-me="${p.id}">I got him</button>`}
     </div>
@@ -874,6 +876,12 @@ function draft(id, who){
   if(sheetFor===null) render(); else save();
 }
 document.addEventListener("click", e=>{
+  const u=e.target.closest("[data-undo]");
+  if(u){
+    undraft(+u.dataset.undo);
+    if(sheetFor!==null) closeSheet();
+    return;
+  }
   const info=e.target.closest("[data-info]");
   const g=e.target.closest("[data-go]"), m=e.target.closest("[data-me]");
   if(info){ openSheet(+info.dataset.info); return; }
@@ -882,6 +890,13 @@ document.addEventListener("click", e=>{
     if(sheetFor!==null) closeSheet();
   }
 });
+function undraft(id){
+  if(!S.gone[id]) return;
+  delete S.gone[id];
+  const i=S.order.indexOf(id);
+  if(i>=0) S.order.splice(i,1);
+  if(sheetFor===null) render(); else save();
+}
 $("undo").onclick=()=>{ const id=S.order.pop(); if(id!==undefined) delete S.gone[id]; render(); };
 $("reset").onclick=()=>{
   if(!S.order.length||confirm("Clear every pick and start over?")){
